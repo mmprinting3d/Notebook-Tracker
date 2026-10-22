@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notebook vs Digital Pad Tracker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Enforce light mode styling */
+        :root {
+            color-scheme: light;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* Tailwind gray-100 */
+            color: #111827; /* Tailwind gray-900 */
+            margin: 0;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card {
+            background-color: #ffffff;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            border-radius: 1rem;
+            padding: 2rem;
+            width: 100%;
+            max-width: 28rem;
+        }
+        .btn {
+            transition: all 0.2s ease-in-out;
+        }
+        .btn:active {
+            transform: scale(0.95);
+        }
+        /* Custom progress bar transition */
+        #progress-fill {
+            transition: width 0.5s ease-out;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card" id="main-card">
+        <!-- Error Message Box -->
+        <div id="error-box" class="hidden mb-4 p-3 bg-red-100 text-red-700 rounded-lg text-sm text-center"></div>
+
+        <!-- Auth Section -->
+        <div id="auth-section">
+            <h1 class="text-2xl font-bold text-center mb-2">Mechina Tracker</h1>
+            <p class="text-center text-gray-500 mb-6 text-sm">Track your paper notebooks vs. the 1600₪ digital pad.</p>
+            
+            <form id="auth-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                    <input type="email" id="email" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="student@example.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                    <input type="password" id="password" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition" placeholder="••••••••">
+                </div>
+                <div class="flex gap-3 pt-2">
+                    <button type="button" id="login-btn" class="btn flex-1 bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded-lg">Log In</button>
+                    <button type="button" id="signup-btn" class="btn flex-1 bg-gray-200 hover:bg-gray-300 text-gray-800 font-semibold py-2 rounded-lg">Sign Up</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tracker Section -->
+        <div id="tracker-section" class="hidden">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-xl font-bold text-gray-800">Notebook Tracker</h1>
+                <button id="logout-btn" class="text-sm text-red-500 hover:text-red-700 font-medium">Log out</button>
+            </div>
+
+            <!-- Main Counter -->
+            <div class="flex flex-col items-center justify-center bg-gray-50 rounded-xl p-6 mb-6 border border-gray-100">
+                <span class="text-sm text-gray-500 font-medium uppercase tracking-wide mb-2">Blocks Used (50 pages)</span>
+                <div class="flex items-center gap-6">
+                    <button id="btn-minus" class="btn w-12 h-12 flex items-center justify-center rounded-full bg-white border-2 border-gray-200 text-gray-600 text-2xl hover:border-gray-400 hover:text-gray-800 focus:outline-none">-</button>
+                    <span id="notebook-count" class="text-6xl font-bold text-blue-600 w-20 text-center">0</span>
+                    <button id="btn-plus" class="btn w-12 h-12 flex items-center justify-center rounded-full bg-white border-2 border-blue-200 text-blue-600 text-2xl hover:border-blue-400 hover:text-blue-800 focus:outline-none">+</button>
+                </div>
+            </div>
+
+            <!-- Financial Stats -->
+            <div class="space-y-4">
+                <div class="flex justify-between items-center p-3 bg-blue-50 rounded-lg text-blue-900">
+                    <span class="font-medium">Money Spent (4₪/block)</span>
+                    <span id="money-spent" class="font-bold text-lg">0 ₪</span>
+                </div>
+                
+                <div class="flex justify-between items-center p-3 bg-gray-50 rounded-lg text-gray-700">
+                    <span class="font-medium">Remaining to 1600₪</span>
+                    <span id="money-remaining" class="font-bold text-lg">1600 ₪</span>
+                </div>
+
+                <!-- Progress Bar -->
+                <div class="mt-6">
+                    <div class="flex justify-between text-xs text-gray-500 mb-1">
+                        <span>0 ₪</span>
+                        <span id="progress-text">0%</span>
+                        <span>1600 ₪</span>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                        <div id="progress-fill" class="bg-blue-600 h-3 rounded-full" style="width: 0%"></div>
+                    </div>
+                    <p class="text-center text-xs text-gray-500 mt-3" id="motivation-text">Keep tracking to see if the digital pad is worth it!</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, setPersistence, browserLocalPersistence } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // REPLACE THIS OBJECT WITH YOUR OWN FIREBASE CONFIGURATION
+        const firebaseConfig = {
+            apiKey: "AIzaSyDvHQv30oS2ZCajcMuv9kB8a41eI0GMTok",
+            authDomain: "mechina-tracker.firebaseapp.com",
+            projectId: "mechina-tracker",
+            storageBucket: "mechina-tracker.firebasestorage.app",
+            messagingSenderId: "31030625340",
+            appId: "1:31030625340:web:3b08ab9d72cf0bf7162f39"
+        };
+        
+        const appId = 'mechina-tracker-custom';
+
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Ensure one-time sign in per device by setting local persistence
+        setPersistence(auth, browserLocalPersistence).catch((error) => {
+            console.error("Auth persistence error:", error);
+        });
+
+        // Constants
+        const DIGITAL_PAD_COST = 1600;
+        const PAPER_BLOCK_COST = 4;
+
+        // UI Elements
+        const authSection = document.getElementById('auth-section');
+        const trackerSection = document.getElementById('tracker-section');
+        const errorBox = document.getElementById('error-box');
+        
+        const emailInput = document.getElementById('email');
+        const passwordInput = document.getElementById('password');
+        const loginBtn = document.getElementById('login-btn');
+        const signupBtn = document.getElementById('signup-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+
+        const notebookCountEl = document.getElementById('notebook-count');
+        const btnPlus = document.getElementById('btn-plus');
+        const btnMinus = document.getElementById('btn-minus');
+        const moneySpentEl = document.getElementById('money-spent');
+        const moneyRemainingEl = document.getElementById('money-remaining');
+        const progressFill = document.getElementById('progress-fill');
+        const progressText = document.getElementById('progress-text');
+        const motivationText = document.getElementById('motivation-text');
+
+        // State
+        let currentUser = null;
+        let currentCount = 0;
+        let unsubscribeSnapshot = null;
+
+        // Utility: Show Error
+        function showError(msg) {
+            errorBox.textContent = msg;
+            errorBox.classList.remove('hidden');
+            setTimeout(() => {
+                errorBox.classList.add('hidden');
+            }, 4000);
+        }
+
+        // Utility: Update UI based on count
+        function updateStats(count) {
+            currentCount = count;
+            notebookCountEl.textContent = count;
+            
+            const spent = count * PAPER_BLOCK_COST;
+            const remaining = Math.max(0, DIGITAL_PAD_COST - spent);
+            const percent = Math.min(100, (spent / DIGITAL_PAD_COST) * 100);
+
+            moneySpentEl.textContent = `${spent} ₪`;
+            moneyRemainingEl.textContent = `${remaining} ₪`;
+            progressFill.style.width = `${percent}%`;
+            progressText.textContent = `${percent.toFixed(1)}%`;
+
+            if (spent >= DIGITAL_PAD_COST) {
+                motivationText.textContent = "You've spent enough to justify the digital pad!";
+                motivationText.classList.add("text-green-600", "font-bold");
+                progressFill.classList.replace("bg-blue-600", "bg-green-500");
+            } else {
+                motivationText.textContent = "Keep tracking to see if the digital pad is worth it!";
+                motivationText.classList.remove("text-green-600", "font-bold");
+                progressFill.classList.replace("bg-green-500", "bg-blue-600");
+            }
+        }
+
+        // Database logic
+        function subscribeToData(user) {
+            if (!user) return;
+            // RULE 1: Strict Paths - Private Data
+            const docRef = doc(db, 'artifacts', appId, 'users', user.uid, 'tracker_data', 'main');
+            
+            unsubscribeSnapshot = onSnapshot(docRef, (docSnap) => {
+                if (docSnap.exists()) {
+                    updateStats(docSnap.data().count || 0);
+                } else {
+                    updateStats(0);
+                    // Initialize document if it doesn't exist
+                    setDoc(docRef, { count: 0 }).catch(console.error);
+                }
+            }, (error) => {
+                console.error("Firestore error:", error);
+                showError("Failed to sync data.");
+            });
+        }
+
+        async function updateCount(newCount) {
+            if (!currentUser) return;
+            if (newCount < 0) return; // Prevent negative blocks
+            
+            // Optimistic UI update
+            updateStats(newCount);
+            
+            const docRef = doc(db, 'artifacts', appId, 'users', currentUser.uid, 'tracker_data', 'main');
+            try {
+                await setDoc(docRef, { count: newCount }, { merge: true });
+            } catch (error) {
+                showError("Error saving data.");
+            }
+        }
+
+        // Event Listeners: Tracker
+        btnPlus.addEventListener('click', () => updateCount(currentCount + 1));
+        btnMinus.addEventListener('click', () => updateCount(currentCount - 1));
+
+        // Event Listeners: Auth
+        loginBtn.addEventListener('click', async () => {
+            const email = emailInput.value.trim();
+            const password = passwordInput.value.trim();
+            if(!email || !password) return showError("Please enter email and password.");
+            
+            try {
+                loginBtn.textContent = "Loading...";
+                await signInWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                loginBtn.textContent = "Log In";
+            }
+        });
+
+        signupBtn.addEventListener('click', async () => {
+            const email = emailInput.value.trim();
+            const password = passwordInput.value.trim();
+            if(!email || !password) return showError("Please enter email and password.");
+            
+            try {
+                signupBtn.textContent = "Loading...";
+                await createUserWithEmailAndPassword(auth, email, password);
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                signupBtn.textContent = "Sign Up";
+            }
+        });
+
+        logoutBtn.addEventListener('click', () => {
+            signOut(auth);
+        });
+
+        // Auth State Observer
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                currentUser = user;
+                authSection.classList.add('hidden');
+                trackerSection.classList.remove('hidden');
+                subscribeToData(user);
+                emailInput.value = '';
+                passwordInput.value = '';
+            } else {
+                currentUser = null;
+                if (unsubscribeSnapshot) {
+                    unsubscribeSnapshot();
+                    unsubscribeSnapshot = null;
+                }
+                authSection.classList.remove('hidden');
+                trackerSection.classList.add('hidden');
+            }
+        });
+
+    </script>
+</body>
+</html>
